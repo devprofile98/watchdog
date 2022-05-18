@@ -21,14 +21,19 @@ void feed_the_dog(pthread_t task_id) {
   }
 }
 
-void add_to_watchlist(pthread_t task_id, unsigned int timeout) {
+void add_to_watchlist(pthread_t task_id, unsigned int timeout,
+                      WDT_CALLBACK cb) {
+  if (is_exists(task_id)) {
+    printf("DISCARDING THE TASK BECAUSE IT EXISTS ALREADY!");
+    return;
+  }
   TaskListEntry *new_entry = (TaskListEntry *)malloc(sizeof(TaskListEntry));
-  // printf("%x %x %xclear", new_entry, &head, &tail);
   new_entry->last_run = current_timestamp();
   new_entry->next = watchdog.t_list.tail;
   new_entry->timeout = timeout;
   new_entry->prev = watchdog.t_list.tail->prev;
   new_entry->task_id = task_id;
+  new_entry->callback = cb;
   watchdog.t_list.tail->prev->next = new_entry;
   watchdog.t_list.tail->prev = new_entry;
 }
@@ -41,12 +46,15 @@ void *watchDog(void *args) {
       temp_time = current_timestamp();
       printf("here! %lld\n", temp_time - temp->last_run);
       if (temp_time - temp->last_run > temp->timeout) {
+        if (temp->callback != NULL)
+          temp->callback(NULL);
         printf("the watchdog was not fed well!\n");
-        exit(-1);
+        fire_the_dog();
       }
       //   temp->last_run = temp_time;
       if (temp->next != watchdog.t_list.tail) {
         temp = temp->next;
+      } else {
         break;
       }
     }
@@ -55,7 +63,13 @@ void *watchDog(void *args) {
   return NULL;
 }
 
-void init_the_dog(long long sleep_time) {
+void fire_the_dog() {
+  if (watchdog.callback != NULL)
+    watchdog.callback(watchdog.callback_arg);
+  exit(-1);
+};
+
+void init_the_dog(long long sleep_time, WDT_CALLBACK cb) {
   TaskListEntry *head = (TaskListEntry *)malloc(sizeof(TaskListEntry));
   TaskListEntry *tail = (TaskListEntry *)malloc(sizeof(TaskListEntry));
   head->next = tail;
@@ -63,6 +77,7 @@ void init_the_dog(long long sleep_time) {
   watchdog.t_list.head = head;
   watchdog.t_list.tail = tail;
   watchdog.sleep_time = sleep_time;
+  watchdog.callback = cb;
 
   head->prev = NULL;
   head->last_run = current_timestamp();
@@ -74,4 +89,22 @@ void init_the_dog(long long sleep_time) {
 
   tail->prev = head;
   head->next = tail;
+}
+
+int is_exists(long long task_id) {
+  int found = 0;
+  TaskListEntry *temp = watchdog.t_list.head->next;
+  while (temp != watchdog.t_list.tail) {
+    if (temp->task_id == task_id) {
+      found = 1;
+      break;
+    }
+
+    if (temp->next != watchdog.t_list.tail) {
+      temp = temp->next;
+    } else {
+      break;
+    }
+  }
+  return found;
 }

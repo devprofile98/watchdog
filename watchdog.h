@@ -9,6 +9,8 @@
 
 #define RS_SLEEP(x) sleep(x)
 
+typedef void (*WDT_CALLBACK)(void *);
+
 // function to receive current timestamp
 // -------------------------------------
 long long current_timestamp();
@@ -21,6 +23,8 @@ typedef struct taskListEntry {
   long long task_id;
   long long last_run;
   unsigned int timeout;
+  WDT_CALLBACK callback;
+
 } TaskListEntry;
 
 // List to store tasks that are watched by dog
@@ -35,11 +39,16 @@ typedef struct taskList {
 typedef struct Dog {
   TaskList t_list;
   long long sleep_time;
+
+  // runs before the actual restart
+  // can be used for a graceful restart
+  WDT_CALLBACK callback;
+  void *callback_arg;
 } WatchDog;
 
 static WatchDog watchdog;
 
-void init_the_dog();
+void init_the_dog(long long sleep_time, WDT_CALLBACK cb);
 
 // feed the dog to prevent it's fireup
 // -----------------------------------
@@ -47,10 +56,17 @@ void feed_the_dog(pthread_t task_id);
 
 // subscribe to watchdog
 // -----------------------------------
-void add_to_watchlist(pthread_t task_id, unsigned int timeout);
+void add_to_watchlist(pthread_t task_id, unsigned int timeout,
+                      WDT_CALLBACK callback);
 
 // The watchgod Task
 // -----------------------------------
 void *watchDog(void *args);
+
+// Main Reset Function, when the dog gets Angry, this function will be called
+// -----------------------------------
+void fire_the_dog();
+
+int is_exists(long long task_id);
 
 #endif // RS_WATCHDOG_H

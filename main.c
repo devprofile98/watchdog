@@ -14,6 +14,9 @@ void *myThreadFunc(void *arg) {
   return NULL;
 }
 
+void graceful_restart(void *a) { printf("G R A C E F U L RESTART\n"); }
+void graceful_task_restart(void *a) { printf("TASK RESET\n"); }
+
 int main() {
   pthread_t thread_id, thread2_id, wdt_id;
 
@@ -23,7 +26,7 @@ int main() {
   a.last_run = current_timestamp();
   a.task_id = wdt_id;
 
-  init_the_dog(1); // sleep time in second
+  init_the_dog(1, graceful_restart); // sleep time in second
 
   // create two thread for common task
   pthread_create(&thread_id, NULL, myThreadFunc, NULL);
@@ -31,9 +34,11 @@ int main() {
   // create the watchdog task
   pthread_create(&wdt_id, NULL, watchDog, NULL);
 
-  // subscribe the two common task to dog watchlist
-  add_to_watchlist(thread_id, 6000);   // timeout in milli seconds
-  add_to_watchlist(thread2_id, 10000); // timeout in milli seconds
+  // subscribe two normal tasks to the dog watchlist
+  add_to_watchlist(thread_id, 4000,
+                   graceful_task_restart); // timeout in milli seconds
+  add_to_watchlist(thread_id, 10000,
+                   graceful_task_restart); // timeout in milli seconds
 
   // prevent the program from exiting!
   pthread_join(thread_id, NULL);
